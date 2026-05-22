@@ -52,6 +52,9 @@
 //     console.log(err);
 //     process.exit(1);
 //   });
+
+
+
 require("dotenv").config();
 
 const config = require("./app/configs/configs")();
@@ -64,49 +67,66 @@ const mongoose = require("mongoose");
 
 const serviceLocator = require("./app/configs/di");
 
+// Mongo warning fix
 mongoose.set("strictQuery", true);
 
+// Database init
 const Database = require("./app/configs/database");
 new Database(config.mongo.uri);
 
-// 🔥 FORCE PORT FIX
+// JWT (if used later)
+const Jwt = require("@hapi/jwt");
+
+// 🔥 FINAL PORT FIX (IMPORTANT)
 const PORT = Number(process.env.PORT || config.app.port || 8000);
 
 const server = Hapi.server({
   port: PORT,
   host: "0.0.0.0",
+
   query: {
     parser: (query) => Qs.parse(query),
   },
+
   routes: {
     cors: true,
   },
 });
 
 const main = async () => {
-  await server.register(decorator);
+  try {
+    // register plugins
+    await server.register(decorator);
 
-  const routeFiles = glob.sync("./app/routes/**.js", {
-    root: __dirname,
-  });
+    // load routes
+    const routeFiles = glob.sync("./app/routes/**.js", {
+      root: __dirname,
+    });
 
-  for (const file of routeFiles) {
-    const route = require(path.join(__dirname, file));
-    if (route.routes) {
-      await route.routes(server, serviceLocator);
+    for (const file of routeFiles) {
+      const route = require(path.join(__dirname, file));
+
+      if (route.routes) {
+        await route.routes(server, serviceLocator);
+      }
     }
+
+    // start server
+    await server.start();
+
+    // 🔥 FIXED LOG (DO NOT use server.info.uri)
+    console.log("ENV PORT:", process.env.PORT);
+    console.log("CONFIG PORT:", config.app.port);
+    console.log("FINAL PORT:", PORT);
+
+    console.log(`🚀 Server running at: http://0.0.0.0:${PORT}`);
+  } catch (error) {
+    console.error("❌ Server Error:", error);
+    process.exit(1);
   }
-
-  await server.start();
-
-  console.log("ENV PORT:", process.env.PORT);
-  console.log("CONFIG PORT:", config.app.port);
-  console.log("FINAL PORT:", PORT);
-
-  console.log(`🚀 Server running at: ${server.info.uri}`);
 };
 
 main().catch((err) => {
-  console.error(err);
+  console.error("❌ Startup Failed:", err);
   process.exit(1);
 });
