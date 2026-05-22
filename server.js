@@ -75,7 +75,7 @@ new Database(config.mongo.uri);
 const Jwt = require("@hapi/jwt");
 
 const server = Hapi.server({
-  port: process.env.PORT || config.app.port || 3000,
+  port: process.env.PORT || config.app.port || 8000,
   host: "0.0.0.0",
 
   query: {
