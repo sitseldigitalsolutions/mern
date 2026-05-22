@@ -52,7 +52,6 @@
 //     console.log(err);
 //     process.exit(1);
 //   });
-
 require("dotenv").config();
 
 const config = require("./app/configs/configs")();
@@ -65,63 +64,49 @@ const mongoose = require("mongoose");
 
 const serviceLocator = require("./app/configs/di");
 
-// Mongoose warning fix
 mongoose.set("strictQuery", true);
 
-// Initialize Database
 const Database = require("./app/configs/database");
 new Database(config.mongo.uri);
 
-const Jwt = require("@hapi/jwt");
+// 🔥 FORCE PORT FIX
+const PORT = Number(process.env.PORT || config.app.port || 8000);
 
 const server = Hapi.server({
-  port: process.env.PORT || config.app.port || 8000,
+  port: PORT,
   host: "0.0.0.0",
-
   query: {
     parser: (query) => Qs.parse(query),
   },
-
   routes: {
     cors: true,
   },
 });
 
 const main = async () => {
-  try {
-    // Register decorators
-    await server.register(decorator);
+  await server.register(decorator);
 
-    // Load all routes
-    const routeFiles = glob.sync("./app/routes/**.js", {
-      root: __dirname,
-    });
+  const routeFiles = glob.sync("./app/routes/**.js", {
+    root: __dirname,
+  });
 
-    for (const file of routeFiles) {
-      const route = require(path.join(__dirname, file));
-
-      if (route.routes) {
-        await route.routes(server, serviceLocator);
-      }
+  for (const file of routeFiles) {
+    const route = require(path.join(__dirname, file));
+    if (route.routes) {
+      await route.routes(server, serviceLocator);
     }
-
-    // Start server
-    await server.start();
-
-    console.log(`✅ Server running on ${server.info.uri}`);
-
-    return server;
-  } catch (error) {
-    console.error("❌ Server Error:", error);
-    process.exit(1);
   }
+
+  await server.start();
+
+  console.log("ENV PORT:", process.env.PORT);
+  console.log("CONFIG PORT:", config.app.port);
+  console.log("FINAL PORT:", PORT);
+
+  console.log(`🚀 Server running at: ${server.info.uri}`);
 };
 
-main()
-  .then((server) => {
-    console.log(`🚀 Server started at: ${server.info.uri}`);
-  })
-  .catch((err) => {
-    console.error("❌ Startup Failed:", err);
-    process.exit(1);
-  });
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
